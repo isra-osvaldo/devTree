@@ -1,24 +1,15 @@
 import { Request, Response } from "express"
 import slugify from "slugify"
-import colors from "colors"
-import { validationResult } from "express-validator"
 import User from "../models/User"
-import { hashPassword } from "../utils/auth"
+import { checkPassword, hashPassword } from "../utils/auth"
 
 export const createAccount = async (req: Request, res: Response) => {
-
-    // Manejar errores
-    let errors = validationResult(req)
-    if (!errors.isEmpty()) {
-        return res.status(400).json({errors: errors.array()})
-    }
 
     const { email, password } = req.body 
     const userExists = await User.findOne({email}) 
 
     if (userExists) {
         const error = new Error('Un usuario con ese email ya está registrado.')
-        console.log(colors.bgRed.bold(error.message))
         return res.status(409).json({error: error.message})
     } 
 
@@ -27,7 +18,6 @@ export const createAccount = async (req: Request, res: Response) => {
 
     if (handleExists) {
         const error = new Error('Nombre de usuario no disponible.')
-        console.log(colors.bgRed.bold(error.message))
         return res.status(409).json({error: error.message})
     }
 
@@ -36,5 +26,29 @@ export const createAccount = async (req: Request, res: Response) => {
     user.handle = handle
     await user.save()  
     res.status(201).json({message: 'Usuario creado correctamente.'})
+}
+
+
+export const login = async (req: Request, res: Response) => {
+    
+    const { email, password } = req.body 
+
+    // Comprobar si el usuario está registrado
+    const user = await User.findOne({email}) 
+    console.log(user)
+
+    if (!user) {
+        const error = new Error('El usuario no existe.')
+        return res.status(404).json({error: error.message})
+    } 
+    
+    // Comprobar el password 
+    const isPasswordValid = await checkPassword(password, user.password)
+    if (!isPasswordValid) {
+        const error = new Error('Password incorrecto.')
+        return res.status(401).json({error: error.message})
+    }
+
+    res.send('Autenticación exitosa.')
 }
 
